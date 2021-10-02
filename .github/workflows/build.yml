@@ -1,0 +1,29 @@
+name: Build
+on: [push]
+jobs:
+  linux:
+    name: Linux
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build
+        run: |
+          set -euxo pipefail
+          docker build \
+            --tag docker-manifest-mergeish \
+            .
+      - name: Publish to Docker Hub
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          DOCKER_HUB_USER: ${{ secrets.DOCKER_HUB_USER }}
+          DOCKER_HUB_ACCESS_TOKEN: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+        run: |
+          image_name="$DOCKER_HUB_USER/$(basename "$GITHUB_REPOSITORY")"
+          image_tag="$(echo "$GITHUB_REF" | sed -E 's,^refs/tags/,,')"
+          # login into docker hub.
+          docker login --username "$DOCKER_HUB_USER" --password-stdin <<EOF
+          $DOCKER_HUB_ACCESS_TOKEN
+          EOF
+          # publish.
+          docker tag docker-manifest-mergeish "$image_name:$image_tag"
+          docker push "$image_name:$image_tag"
